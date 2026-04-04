@@ -1,0 +1,27 @@
+step 1:
+
+run
+
+```
+npm install
+`
+
+
+structure:
+
+```
+screen/
+|-LoginScreen.jsx  //this is login screen 
+|-RegisterScreen.jsx //this is RegisterScreen
+|-authScreen,jsx //for the primary dashboard of role selection
+```
+services/
+|-authService //this is for connecting frontend with backend
+
+```
+
+npm install axios
+npx expo install @react-native-async-storage/async-storage//  //run these in frontend 
+
+```
+imported AppNavigator in app/index.jsx instead of deleting the app folder

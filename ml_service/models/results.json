@@ -1,0 +1,13 @@
+{
+  "mean_height_m": 7.431258479849823,
+  "mean_rh_atl08_m": 7.0597771052463125,
+  "mean_agb_Mg_per_ha": 187.76024882075563,
+  "bgb_Mg_per_ha": 73.2264970400947,
+  "total_biomass_Mg_per_ha": 260.9867458608503,
+  "carbon_Mg_per_ha": 122.66377055459964,
+  "co2_t_per_ha": 450.17603793538063,
+  "model_r2_mean": 0.17872240179386342,
+  "model_r2_std": 0.027468439361931118,
+  "model_rmse_mean": 0.5990295106840804,
+  "n_samples": 28910
+}

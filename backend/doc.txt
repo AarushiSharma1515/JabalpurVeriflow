@@ -1,0 +1,41 @@
+backend structure 
+
+```
+veriflow-backend/
+│
+├─ controllers/       # Business logic
+│    ├─ authController.js
+│    ├─ userController.js
+│    └─ projectController.js
+│
+├─ models/            # Mongoose models
+│    ├─ User.js
+│    ├─ Project.js
+│    └─ CarbonCredit.js
+│
+├─ routes/            # Express routes
+│    ├─ authRoutes.js
+│    ├─ userRoutes.js
+│    └─ projectRoutes.js
+│
+├─ middleware/        # Auth & error handling
+│    ├─ authMiddleware.js
+│    └─ errorMiddleware.js
+│
+├─ uploads/           # Uploaded files
+├─ .env
+├─ index.js           # Server entry point
+└─ package.json
+```
+
+.env - for database API and JWT secret key
+
+index.js - final end point for routes
+
+clone the github repo - https://github.com/akshat16206/Verfiflow
+
+run - 
+```
+npm install
+```
+created user model and wrote api endpoints for login signup with authorization and password hashing
