@@ -110,7 +110,7 @@ const MLResultSchema = new mongoose.Schema({
   // ========== STATUS TRACKING ==========
   status: {
     type: String,
-    enum: ['pending', 'approved', 'rejected', 'minted'],
+    enum: ['pending', 'auto_minted', 'admin_review', 'manual_review', 'auto_denied', 'approved', 'rejected', 'minted', 'appealed', 'appeal_approved', 'appeal_rejected'],
     default: 'pending',
     index: true,
     comment: 'pending: awaiting admin review, approved: ready to mint, minted: credits created'
@@ -152,6 +152,58 @@ const MLResultSchema = new mongoose.Schema({
   creditId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'CarbonCredit',
+    default: null
+  },
+
+  tier: {
+    type: String,
+    enum: ['HIGH', 'MEDIUM', 'LOW', 'DENIED'],
+    default: null
+  },
+  tierLabel: {
+    type: String,
+    default: null
+  },
+  confidenceScore: {
+    type: Number,
+    default: null
+  },
+  appealStatus: {
+    type: String,
+    enum: [null, 'pending', 'approved', 'rejected'],
+    default: null
+  },
+  appealReason: {
+    type: String,
+    default: null
+  },
+  appealFiledAt: {
+    type: Date,
+    default: null
+  },
+  appealDeadline: {
+    type: Date,
+    default: null
+  },
+  appealReviewedAt: {
+    type: Date,
+    default: null
+  },
+  appealReviewedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  appealAdminNotes: {
+    type: String,
+    default: null
+  },
+  autoMintedAt: {
+    type: Date,
+    default: null
+  },
+  credits: {
+    type: Number,
     default: null
   }
 }, { 

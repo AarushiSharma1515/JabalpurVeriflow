@@ -1,50 +1,67 @@
 @echo off
-echo ========================================
-echo    VeriFlow Hackathon Startup Script
-echo ========================================
-echo.
+setlocal enabledelayedexpansion
 
-:: Auto-detect current WiFi IP
-echo Detecting your current IP address...
-for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /i "IPv4" ^| findstr /v "127.0.0.1"') do (
-    set RAW_IP=%%a
-    goto :found_ip
+echo ========================================
+echo   VeriFlow - One Click Launcher
+echo ========================================
+
+:: ── Auto-detect local WiFi/LAN IP ──────────────────────────────────────────
+set LOCAL_IP=
+for /f "tokens=2 delims=:" %%A in ('ipconfig ^| findstr /i "IPv4"') do (
+    set CANDIDATE=%%A
+    set CANDIDATE=!CANDIDATE: =!
+    echo !CANDIDATE! | findstr /v "^127\." > nul
+    if !errorlevel! == 0 (
+        if not defined LOCAL_IP set LOCAL_IP=!CANDIDATE!
+    )
 )
 
-:found_ip
-:: Remove leading space from IP
-set SERVER_IP=%RAW_IP: =%
-echo Detected IP: %SERVER_IP%
-echo.
+if not defined LOCAL_IP (
+    echo [WARN] Could not detect IP, falling back to localhost
+    set LOCAL_IP=127.0.0.1
+)
 
-:: Update app .env with current IP
-echo Updating app .env...
-echo EXPO_PUBLIC_SERVER_IP=%SERVER_IP%> "C:\Users\Dell\Documents\veriflow_hackathon\veriflow_app\.env"
-echo EXPO_PUBLIC_SERVER_PORT=5001>> "C:\Users\Dell\Documents\veriflow_hackathon\veriflow_app\.env"
-echo App .env updated!
-echo.
+echo [OK] Detected IP: %LOCAL_IP%
 
-:: Start Terminal 1 - Backend
-echo Starting Backend on port 5001...
-start "VeriFlow Backend" cmd /k "cd /d C:\Users\Dell\Documents\veriflow_hackathon\backend && node index.js"
-timeout /t 4 /nobreak > nul
+:: ── Resolve script location so paths are never hardcoded ───────────────────
+set ROOT=%~dp0
+:: Remove trailing backslash
+if "%ROOT:~-1%"=="\" set ROOT=%ROOT:~0,-1%
 
-:: Start Terminal 2 - ML Service with correct venv
-echo Starting ML Service on port 8000...
-start "VeriFlow ML" cmd /k "C:\Users\Dell\Documents\SIH_VERIFLOW-final\ml_service\venv\Scripts\activate && cd /d C:\Users\Dell\Documents\veriflow_hackathon\ml_service && python -m uvicorn app:app --host 0.0.0.0 --port 8000"
-timeout /t 4 /nobreak > nul
+set BACKEND_DIR=%ROOT%\backend
+set APP_DIR=%ROOT%\veriflow_app
+set ML_DIR=%ROOT%\ml_service
+set APP_ENV=%APP_DIR%\.env
 
-:: Start Terminal 3 - Expo App
-echo Starting Expo App...
-start "VeriFlow App" cmd /k "cd /d C:\Users\Dell\Documents\veriflow_hackathon\veriflow_app && npx expo start"
+:: ── Write .env for Expo app ─────────────────────────────────────────────────
+echo EXPO_PUBLIC_SERVER_IP=%LOCAL_IP%> "%APP_ENV%"
+echo EXPO_PUBLIC_SERVER_PORT=5001>> "%APP_ENV%"
+echo [OK] Wrote %APP_ENV%
+
+:: ── Launch Backend ──────────────────────────────────────────────────────────
+echo [1/3] Starting Backend  ^(port 5001^)...
+start "VeriFlow - Backend" cmd /k "cd /d "%BACKEND_DIR%" && node index.js"
+
+timeout /t 3 /nobreak > nul
+
+:: ── Launch ML Service ───────────────────────────────────────────────────────
+echo [2/3] Starting ML Service  ^(port 8000^)...
+start "VeriFlow - ML Service" cmd /k "cd /d "%ML_DIR%" && python -m uvicorn app:app --host 0.0.0.0 --port 8000 --reload"
+
+timeout /t 3 /nobreak > nul
+
+:: ── Launch Expo App ─────────────────────────────────────────────────────────
+echo [3/3] Starting Expo App  ^(port 8081^)...
+start "VeriFlow - Expo App" cmd /k "cd /d "%APP_DIR%" && npx expo start"
 
 echo.
 echo ========================================
-echo    All services started!
+echo   All services running!
+echo   Backend  ^>  http://%LOCAL_IP%:5001
+echo   ML API   ^>  http://%LOCAL_IP%:8000
+echo   Expo     ^>  http://%LOCAL_IP%:8081
 echo ========================================
-echo Backend:  http://%SERVER_IP%:5001
-echo ML Model: http://%SERVER_IP%:8000
-echo App:      Scan QR code in Expo terminal
+echo   Scan the QR in the Expo window with
+echo   Expo Go on your phone.
 echo ========================================
-echo.
 pause

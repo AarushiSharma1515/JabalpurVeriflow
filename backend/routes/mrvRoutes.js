@@ -1,63 +1,129 @@
 const express = require('express');
-const axios = require('axios');
 const router = express.Router();
+const axios = require('axios');
+const mongoose = require('mongoose');
+const MLResult = require('../models/MLResults');
+const Project = require('../models/Project');
 
-const ML_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+// Middleware to verify token
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'No token provided' });
+  }
+  
+  // For now, just pass through since your auth is handled elsewhere
+  // In production, verify the token properly
+  req.user = { id: token };
+  next();
+};
 
-// POST /api/mrv/predict
-router.post('/predict', async (req, res) => {
+// MRV Predict endpoint - matches your frontend call
+router.post('/predict', authenticateToken, async (req, res) => {
   try {
-    const { polygon, points, startDate, endDate, projectId, use_fixed_csv } = req.body;
-
-if (!startDate || !endDate) {
-  return res.status(400).json({ success: false, error: 'startDate and endDate are required' });
+    const { points, startDate, endDate, projectId } = req.body;
+    
+    if (!projectId) {
+      return res.status(400).json({ success: false, error: 'projectId is required' });
+    }
+    
+    // Call your ML service on port 8000
+    const mlServiceUrl = process.env.ML_SERVICE_URL || 'http://192.168.168.61:8000';
+    
+    let mlResponse;
+    try {
+      mlResponse = await axios.post(`${mlServiceUrl}/predict`, {
+      points,
+      start_date: startDate,
+      end_date: endDate,
+      project_id: projectId
+      }, {
+        timeout: 300000,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (mlError) {
+  console.error('ML service error:', mlError.message);
+  return res.status(503).json({
+    success: false,
+    error: 'ML service unavailable. Please ensure the ML model is running.'
+  });
 }
-
-const { data: job } = await axios.post(`${ML_URL}/predict`, {
-  polygon_geojson: polygon || null,
-  points: points || null,
-  use_fixed_csv: use_fixed_csv || false,
-  start_date: startDate,
-  end_date: endDate,
-  project_id: projectId || null,
+    
+    // Return job_id immediately for polling
+    res.json({
+      success: true,
+      job_id: mlResponse.data.job_id
+    });
+    
+  } catch (error) {
+    console.error('MRV predict error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      message: 'ML analysis failed'
+    });
+  }
 });
 
-    console.log('ML job started:', job.job_id);
+// Get ML status from the ML service
+router.get('/predict/status/:jobId', authenticateToken, async (req, res) => {
+  try {
+    const mlServiceUrl = process.env.ML_SERVICE_URL || 'http://192.168.168.61:8000';
+    const statusResponse = await axios.get(`${mlServiceUrl}/predict/status/${req.params.jobId}`, {
+      timeout: 600000,
+    });
+    res.json(statusResponse.data);
+  } catch (error) {
+    console.error('ML status proxy error:', error.message);
+    if (error.response) {
+      return res.status(error.response.status).json(error.response.data);
+    }
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
-    // 2. Poll every 5 seconds, max 10 minutes
-    for (let i = 0; i < 120; i++) {
-      await new Promise(r => setTimeout(r, 5000));
-      const { data: s } = await axios.get(`${ML_URL}/predict/status/${job.job_id}`);
-      console.log(`Job ${job.job_id} status: ${s.status} (poll ${i + 1})`);
+// Get ML job result by projectId
+router.get('/job-result/:projectId', authenticateToken, async (req, res) => {
+  try {
+    // CHANGED: Accept 'after' query param to filter stale results
+    const projectId = req.params.projectId;
+    const afterTimestamp = req.query.after ? new Date(req.query.after) : null;
 
-      if (s.status === 'done')  return res.json({ success: true, job_id: job.job_id, result: s.result });
-      if (s.status === 'error') return res.status(500).json({ success: false, error: s.result.error });
+    const mlResult = await MLResult.findOne({ projectId })
+      .sort({ createdAt: -1 });
+    
+    if (mlResult) {
+      // CHANGED: Only return 'done' if result was created after job start time
+      if (afterTimestamp && mlResult.createdAt < afterTimestamp) {
+        return res.json({ success: true, status: 'running' });
+      }
+      
+      return res.json({
+        success: true,
+        status: 'done',
+        result: {
+          mean_pred_agb_Mg_per_ha: mlResult.meanAgbMgPerHa,
+          mean_pred_height_m: mlResult.meanHeightM,
+          mean_pred_confidence: mlResult.modelR2Mean,
+          mean_pred_carbon_Mg_per_ha: mlResult.carbonMgPerHa,
+          mean_pred_co2_t_per_ha: mlResult.co2TPerHa,
+          tier: mlResult.tier,
+          tierLabel: mlResult.tierLabel,
+          status: mlResult.status,
+          credits: mlResult.credits
+        }
+      });
     }
 
-    res.status(504).json({ success: false, error: 'ML prediction timed out after 10 minutes' });
-
-  } catch (err) {
-    console.error('MRV predict error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// GET /api/mrv/status/:jobId
-router.get('/status/:jobId', async (req, res) => {
-  try {
-    const { data } = await axios.get(`${ML_URL}/status/${req.params.jobId}`);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// GET /api/mrv/health
-router.get('/health', async (req, res) => {
-  try {
-    const { data } = await axios.get(`${ML_URL}/health`);
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: 'ML service unreachable', detail: err.message });
+    res.json({
+      success: true,
+      status: 'running'
+    });
+  } catch (error) {
+    console.error('ML job result error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

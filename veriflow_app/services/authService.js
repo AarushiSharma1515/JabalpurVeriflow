@@ -1,8 +1,21 @@
 import axios from "axios";
-import { API_BASE } from "../config/api";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// ------ AUTH SERVICES ------ //
+const getApiBase = () => {
+  const ip = process.env.EXPO_PUBLIC_SERVER_IP;
+  const port = process.env.EXPO_PUBLIC_SERVER_PORT || '5001';
+  
+  if (!ip) {
+    console.warn('EXPO_PUBLIC_SERVER_IP not set in .env');
+    return 'http://localhost:5001';
+  }
+  
+  return `http://${ip}:${port}`;
+};
+
+const API_BASE = getApiBase();
+
+console.log('API_BASE from env:', API_BASE);
 
 const login = async (email, password) => {
   const url = `${API_BASE}/api/auth/login`;
@@ -60,7 +73,6 @@ const getProfile = async (token) => {
     }
     return res.data;
   } catch (error) {
-    // Graceful fallback to local cache if server is temporarily unreachable.
     const rawUser = await AsyncStorage.getItem('user');
     if (!rawUser) throw error;
     try {
@@ -89,7 +101,6 @@ const updateProfile = async (token, payload) => {
 
     return res.data;
   } catch (error) {
-    // Fallback when running backend instance does not yet expose /api/users/me.
     if (error?.response?.status !== 404) {
       throw error;
     }
@@ -104,7 +115,6 @@ const updateProfile = async (token, payload) => {
       }
     }
 
-    // Persist wallet through legacy endpoint if provided.
     if (payload?.walletAddress) {
       await axios.patch(
         `${API_BASE}/api/orders/update-wallet`,

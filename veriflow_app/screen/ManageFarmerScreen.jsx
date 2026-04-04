@@ -176,7 +176,7 @@ export default function ManageFarmerScreen({ navigation, route }) {
 
   return (
     <LinearGradient
-      colors={['#4A90E2', '#7B68EE']}
+      colors={['#0d1f0d', '#0f2a0f']}
       style={styles.gradient}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
@@ -188,7 +188,7 @@ export default function ManageFarmerScreen({ navigation, route }) {
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            <Ionicons name="arrow-back" size={24} color="#4dff4d" />
           </TouchableOpacity>
           <View style={styles.headerTextContainer}>
             <Text style={styles.title}>Manage Farmers</Text>
@@ -318,39 +318,39 @@ const styles = StyleSheet.create({
   header:{flexDirection:'row',alignItems:'center',paddingHorizontal:20,paddingTop:10,paddingBottom:20},
   backButton:{marginRight:15,padding:5},
   headerTextContainer:{flex:1},
-  title:{fontSize:28,fontWeight:'bold',color:'#FFFFFF',marginBottom:4},
-  subtitle:{fontSize:14,color:'#FFFFFF',opacity:0.9},
-  searchContainer:{flexDirection:'row',alignItems:'center',backgroundColor:'#FFFFFF',marginHorizontal:20,marginBottom:15,borderRadius:12,paddingHorizontal:15,height:48,elevation:3},
+  title:{fontSize:28,fontWeight:'bold',color:'#4dff4d',marginBottom:4},
+  subtitle:{fontSize:14,color:'#a1a1a1',opacity:0.9},
+  searchContainer:{flexDirection:'row',alignItems:'center',backgroundColor:'#1a3a1a',marginHorizontal:20,marginBottom:15,borderRadius:12,paddingHorizontal:15,height:48,borderWidth:1,borderColor:'#2d5a2d',elevation:3},
   searchIcon:{marginRight:10},
-  searchInput:{flex:1,fontSize:16,color:'#1e293b'},
+  searchInput:{flex:1,fontSize:16,color:'#e5e5e5'},
   filterContainer:{marginBottom:15,maxHeight:50},
   filterContent:{paddingHorizontal:20,gap:10,flexDirection:'row',alignItems:'center'},
-  filterButton:{paddingHorizontal:16,paddingVertical:10,borderRadius:10,backgroundColor:'rgba(255,255,255,0.3)',marginRight:10,minHeight:40},
-  filterButtonActive:{backgroundColor:'#FFFFFF'},
-  filterButtonText:{fontSize:14,fontWeight:'600',color:'#FFFFFF'},
-  filterButtonTextActive:{color:'#5A7FE2'},
+  filterButton:{paddingHorizontal:16,paddingVertical:10,borderRadius:10,backgroundColor:'rgba(77,255,77,0.1)',marginRight:10,minHeight:40,borderWidth:1,borderColor:'#2d5a2d'},
+  filterButtonActive:{backgroundColor:'#4dff4d'},
+  filterButtonText:{fontSize:14,fontWeight:'600',color:'#a1a1a1'},
+  filterButtonTextActive:{color:'#0d1f0d'},
   scrollView:{flex:1},
   scrollContent:{paddingHorizontal:20,paddingBottom:20},
   emptyContainer:{alignItems:'center',justifyContent:'center',paddingVertical:60},
-  emptyText:{fontSize:18,fontWeight:'600',color:'#FFFFFF',marginTop:15},
-  emptySubtext:{fontSize:14,color:'#FFFFFF',opacity:0.8,marginTop:5},
-  farmerCard:{backgroundColor:'#FFFFFF',borderRadius:12,padding:16,marginBottom:12,elevation:8},
+  emptyText:{fontSize:18,fontWeight:'600',color:'#e5e5e5',marginTop:15},
+  emptySubtext:{fontSize:14,color:'#a1a1a1',opacity:0.8,marginTop:5},
+  farmerCard:{backgroundColor:'#1a3a1a',borderRadius:12,padding:16,marginBottom:12,elevation:8,borderWidth:1,borderColor:'#2d5a2d'},
   farmerHeader:{flexDirection:'row',alignItems:'flex-start',marginBottom:12},
-  farmerAvatar:{width:48,height:48,borderRadius:24,backgroundColor:'#E0E7FF',alignItems:'center',justifyContent:'center',marginRight:12},
+  farmerAvatar:{width:48,height:48,borderRadius:24,backgroundColor:'#2d5a2d',alignItems:'center',justifyContent:'center',marginRight:12},
   farmerInfo:{flex:1},
-  farmerName:{fontSize:18,fontWeight:'700',color:'#1e293b',marginBottom:4},
-  farmerEmail:{fontSize:14,color:'#64748b',marginBottom:2},
-  farmerPhone:{fontSize:14,color:'#64748b'},
+  farmerName:{fontSize:18,fontWeight:'700',color:'#e5e5e5',marginBottom:4},
+  farmerEmail:{fontSize:14,color:'#a1a1a1',marginBottom:2},
+  farmerPhone:{fontSize:14,color:'#a1a1a1'},
   statusBadge:{flexDirection:'row',alignItems:'center',paddingHorizontal:10,paddingVertical:5,borderRadius:12,gap:4},
   statusText:{fontSize:12,fontWeight:'600'},
-  farmerDetails:{flexDirection:'row',marginBottom:12,paddingTop:12,borderTopWidth:1,borderTopColor:'#e2e8f0'},
+  farmerDetails:{flexDirection:'row',marginBottom:12,paddingTop:12,borderTopWidth:1,borderTopColor:'#2d5a2d'},
   detailItem:{flexDirection:'row',alignItems:'center',gap:6},
-  detailText:{fontSize:14,color:'#64748b'},
+  detailText:{fontSize:14,color:'#a1a1a1'},
   actionContainer:{flexDirection:'row',gap:8,flexWrap:'wrap'},
   actionButton:{flexDirection:'row',alignItems:'center',justifyContent:'center',paddingVertical:10,paddingHorizontal:8,borderRadius:8,gap:6},
-  approveButton:{backgroundColor:'#3b82f6'},
-  rejectButton:{backgroundColor:'#f97316'},
+  approveButton:{backgroundColor:'#10b981'},
+  rejectButton:{backgroundColor:'#ef4444'},
   deleteButton:{backgroundColor:'#e11d48'},
-  uploadButton:{backgroundColor:'#10b981'},
-  actionButtonText:{color:'#FFFFFF',fontSize:14,fontWeight:'600'},
+  uploadButton:{backgroundColor:'#4dff4d'},
+  actionButtonText:{color:'#0d1f0d',fontSize:14,fontWeight:'600'},
 });

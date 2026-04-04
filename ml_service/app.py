@@ -1,7 +1,7 @@
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
-import json, os, uuid, time
+import json, os, uuid, time, traceback
 from pathlib import Path
 import pandas as pd
 import requests
@@ -136,4 +136,6 @@ async def run_job(job_id: str, req: PredictRequest):
                 print(f"⚠️ Could not save to backend: {save_err}")
 
     except Exception as e:
-        jobs[job_id] = {"status": "error", "result": {"error": str(e)}}
+        error_msg = traceback.format_exc()
+        print(f"Error in run_job: {error_msg}")
+        jobs[job_id] = {"status": "error", "result": {"error": error_msg}}

@@ -1,13 +1,89 @@
 const Order = require('../models/Order');
 const Project = require('../models/Project');
 const User = require('../models/User');
+const CarbonCredit = require('../models/CarbonCredit');
+const { transferCarbonCredit } = require('../blockchain/solanaService');
+
+function getNextAvailableMintAddress(creditDoc) {
+  const transferredSet = new Set((creditDoc.transfers || []).map((t) => t.mintAddress));
+  return (creditDoc.mintAddresses || []).find((addr) => !transferredSet.has(addr));
+}
+
+async function resolveOrderTransfer(order) {
+  if (!order || !['pending', 'approved'].includes(order.status)) return order;
+
+  const projectId = order?.project?.projectId;
+  const buyerWallet = order?.buyerWalletAddress;
+
+  if (!projectId || !buyerWallet) {
+    order.status = 'failed';
+    order.adminNotes = 'Missing projectId or buyer wallet for transfer';
+    await order.save();
+    return order;
+  }
+
+  const credit = await CarbonCredit.findOne({
+    projectId: require('mongoose').Types.ObjectId.isValid(projectId) ? new (require('mongoose').Types.ObjectId)(projectId) : projectId,
+    mintAddresses: { $exists: true, $not: { $size: 0 } },
+    status: { $in: ['minted', 'partiallyTransferred'] }
+  }).sort({ createdAt: -1 });
+
+  if (!credit) {
+    order.status = 'failed';
+    order.adminNotes = 'No minted NFT found for this project';
+    await order.save();
+    return order;
+  }
+
+  const nextMintAddress = getNextAvailableMintAddress(credit);
+  if (!nextMintAddress) {
+    order.status = 'failed';
+    order.adminNotes = 'No untransferred NFT available for this project';
+    await order.save();
+    return order;
+  }
+
+  try {
+    const transferResult = await transferCarbonCredit(nextMintAddress, buyerWallet);
+    const txHash = transferResult.signature || transferResult.transactionHash || null;
+
+    credit.transfers.push({
+      mintAddress: nextMintAddress,
+      buyerWallet,
+      transactionHash: txHash,
+      transferredAt: new Date()
+    });
+
+    credit.status = credit.transfers.length >= credit.mintAddresses.length
+      ? 'fullyTransferred'
+      : 'partiallyTransferred';
+
+    await credit.save();
+
+    order.status = 'completed';
+    order.transactionHash = txHash;
+    order.adminNotes = `NFT transferred successfully (${nextMintAddress})`;
+    await order.save();
+  } catch (err) {
+    order.status = 'failed';
+    order.adminNotes = `Transfer failed: ${err.message}`;
+    await order.save();
+  }
+
+  return order;
+}
 
 /**
  * Create a new purchase order (Buyer only)
  */
 exports.createOrder = async (req, res) => {
+  console.log('📦 Received order request:', req.body);
   try {
     const { projectId, sellerId, carbonKg, carbonTons, priceMatic, priceUSD } = req.body;
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({ success: false, message: 'Invalid sellerId format' });
+    }
     const buyerId = req.user._id;
 
     // Validate required fields
@@ -43,14 +119,18 @@ exports.createOrder = async (req, res) => {
         message: 'Project not found' 
       });
     }
+    console.log('🔵 Project status:', project.status);
+    console.log('🔵 Checking condition:', project.status !== 'verified');
 
     // Verify project is verified
     if (project.status !== 'verified') {
+      console.log('🔴 ERROR: Project not verified!');
       return res.status(400).json({ 
         success: false, 
         message: 'This project is not yet verified for carbon credits' 
       });
     }
+    console.log('🟢 Verification passed!');
 
     // Create order
     const order = new Order({
@@ -75,6 +155,8 @@ exports.createOrder = async (req, res) => {
 
     await order.save();
 
+    await resolveOrderTransfer(order);
+
     // Populate buyer and seller info for response
     const populatedOrder = await Order.findById(order._id)
       .populate('buyer', 'name email role walletAddress')
@@ -83,7 +165,9 @@ exports.createOrder = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Order created successfully! Admin will process the token transfer to your wallet.',
+      message: populatedOrder.status === 'completed'
+        ? 'Order created and NFT transferred successfully.'
+        : (populatedOrder.adminNotes || 'Order processing failed during NFT transfer.'),
       order: populatedOrder
     });
 
@@ -102,6 +186,14 @@ exports.createOrder = async (req, res) => {
  */
 exports.getMyOrders = async (req, res) => {
   try {
+    const pendingOrders = await Order.find({ buyer: req.user._id, status: { $in: ['pending', 'approved'] } })
+      .sort({ createdAt: -1 })
+      .limit(25);
+
+    for (const pendingOrder of pendingOrders) {
+      await resolveOrderTransfer(pendingOrder);
+    }
+
     const orders = await Order.find({ buyer: req.user._id })
       .populate('seller', 'name email')
       .populate('project.projectId', 'title location')
@@ -126,6 +218,14 @@ exports.getMyOrders = async (req, res) => {
  */
 exports.getMySellerOrders = async (req, res) => {
   try {
+    const pendingOrders = await Order.find({ seller: req.user._id, status: { $in: ['pending', 'approved'] } })
+      .sort({ createdAt: -1 })
+      .limit(25);
+
+    for (const pendingOrder of pendingOrders) {
+      await resolveOrderTransfer(pendingOrder);
+    }
+
     const orders = await Order.find({ seller: req.user._id })
       .populate('buyer', 'name email walletAddress')
       .populate('project.projectId', 'title location')

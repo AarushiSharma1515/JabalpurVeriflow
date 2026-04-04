@@ -106,95 +106,150 @@ export default function VerificationScreen({ route, navigation }) {
     }
   };
 
-  const runMLAnalysis = async (project) => {
-    setSelectedProject(project);
-    setAnalyzing(true);
-    setAnalysisStage("Sampling satellite data...");
+ const runMLAnalysis = async (project) => {
+  const token = await AsyncStorage.getItem('token');
+  if (!token) { 
+    Alert.alert('Error', 'Please login again'); 
+    return; 
+  }
 
-    try {
-      // Using verified Sundarbans reference coordinates (default)
-      const payload = {
-        points: [
-          { lat: 21.92, lon: 89.18, date: "2023-06-01" },
-          { lat: 21.93, lon: 89.19, date: "2023-06-01" },
-          { lat: 21.94, lon: 89.20, date: "2023-06-01" },
-          { lat: 21.95, lon: 89.21, date: "2023-06-01" },
-        ],
-        startDate: "2023-01-01",
-        endDate: "2023-12-31",
-        projectId: project._id,  // Add projectId so ML service saves to MLResults
-      };
+  setSelectedProject(project);
+  setAnalyzing(true);
+  setAnalysisStage("Starting ML analysis...");
+  // CHANGED: Clear any previous ML results to prevent stale data
+  setMlResults(null);
 
-      setAnalysisStage("Running ML model on satellite data...");
+  try {
+    const mlPayload = {
+      projectId: project._id,
+      points: [
+        { lat: 21.92, lon: 89.18, date: "2023-06-01" },
+        { lat: 21.93, lon: 89.19, date: "2023-06-01" },
+        { lat: 21.94, lon: 89.20, date: "2023-06-01" },
+        { lat: 21.95, lon: 89.21, date: "2023-06-01" },
+      ],
+      startDate: "2023-01-01",
+      endDate: "2023-12-31",
+    };
 
-      const response = await axios.post(
-        `${API_BASE}/api/mrv/predict`,
-        payload,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 600000,
-        }
-      );
-
-      if (!response.data.success) {
-        throw new Error(response.data.error || "ML prediction failed");
+    // Start ML job
+    const startResponse = await axios.post(
+      `${API_BASE}/api/mrv/predict`,
+      mlPayload,
+      {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        timeout: 30000,
       }
+    );
 
-      const result = response.data.result;
-
-      // Format ML results according to your schema
-      const mlData = {
-        status: "success",
-        job_id: response.data.job_id,
-        final_results: {
-          agb_Mg_per_ha: result.mean_pred_agb_Mg_per_ha,
-          carbon_sequestration_kg: result.mean_pred_carbon_Mg_per_ha * 1000,
-          study_area_ha: project.areaHectares || 1,
-        },
-        component_results: {
-          satellite: {
-            agb_Mg_per_ha: result.mean_pred_agb_Mg_per_ha,
-            height_m: result.mean_pred_height_m,
-            confidence: result.mean_pred_confidence,
-            n_points: result.n_points,
-          },
-          drone: {
-            agb_Mg_per_ha: result.mean_pred_agb_Mg_per_ha,
-            area_m2: (project.areaHectares || 1) * 10000,
-            carbon_kg: result.mean_pred_carbon_Mg_per_ha * 1000,
-            co2_kg: result.mean_pred_co2_t_per_ha * 1000,
-            confidence: result.mean_pred_confidence,
-          },
-        },
-        co2_t_per_ha: result.mean_pred_co2_t_per_ha,
-      };
-
-      // Save ML results to MongoDB and update status to underReview
-      await axios.patch(
-        `${API_BASE}/api/projects/${project._id}`,
-        { 
-          mlAnalysisResults: mlData, 
-          status: "underReview" 
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      setMlResults(mlData);
-      setResultsModalVisible(true);
-      setAnalysisStage("");
-      
-      // Refresh the project list
-      await fetchProjects();
-      
-    } catch (error) {
-      console.error("ML Analysis Error:", error);
-      const errorMessage = error.response?.data?.message || error.message || "ML analysis failed";
-      Alert.alert("Analysis Failed", errorMessage);
-    } finally {
-      setAnalyzing(false);
+    if (!startResponse.data.success) {
+      const errorMsg = startResponse.data.error || 'Failed to start ML analysis';
+      if (errorMsg.includes('ML service unavailable')) {
+        Alert.alert('ML Service Unavailable', 'ML service is not running. Please contact support.');
+        setAnalyzing(false);
+        return;
+      } else {
+        throw new Error(errorMsg);
+      }
     }
-  };
 
+    setAnalysisStage("Running ML model on satellite data... (2-5 mins)");
+    // CHANGED: Store the job start timestamp to filter stale results
+    const jobStartTime = new Date().toISOString();
+
+    const pollProjectId = project._id || project.id;
+
+    // Poll for results
+    let pollCount = 0;
+    const maxPolls = 40;
+    const pollInterval = setInterval(async () => {
+      pollCount++;
+      try {
+        // CHANGED: Pass the job start timestamp to filter stale results
+        const statusResponse = await axios.get(
+          `${API_BASE}/api/mrv/job-result/${pollProjectId}?after=${encodeURIComponent(jobStartTime)}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            timeout: 15000,
+          }
+        );
+
+        if (statusResponse.data.status === 'done') {
+          clearInterval(pollInterval);
+          
+          const result = statusResponse.data.result;
+          
+          const mlData = {
+            status: 'success',
+            final_results: {
+              agb_Mg_per_ha: result.mean_pred_agb_Mg_per_ha,
+              carbon_sequestration_kg: (result.mean_pred_carbon_Mg_per_ha || 0) * 1000,
+              study_area_ha: project.areaHectares || 1,
+            },
+            component_results: {
+              satellite: {
+                agb_Mg_per_ha: result.mean_pred_agb_Mg_per_ha,
+                height_m: result.mean_pred_height_m,
+                confidence: result.mean_pred_confidence,
+                n_points: 4,
+              }
+            },
+            co2_t_per_ha: result.mean_pred_co2_t_per_ha,
+            tier: result.tier,
+            tierLabel: result.tierLabel,
+            status: result.status,
+            credits: result.credits
+          };
+
+          setMlResults(mlData);
+          setResultsModalVisible(true);
+          setAnalysisStage("");
+
+          // Save results to project
+          await axios.patch(
+            `${API_BASE}/api/projects/${project._id}`,
+            { mlAnalysisResults: mlData },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+
+          // Show appropriate alert
+          if (result.status === 'auto_minted') {
+            Alert.alert('✅ Auto Minted', `High confidence! ${result.mean_pred_co2_t_per_ha?.toFixed(1)} t/ha CO₂ auto-minted.`);
+          } else if (result.status === 'admin_review') {
+            Alert.alert('📋 Under Review', `Confidence ${((result.mean_pred_confidence || 0) * 100).toFixed(1)}%. Admin will review shortly.`);
+          } else if (result.status === 'manual_review') {
+            Alert.alert('🔍 Manual Review', `Confidence ${((result.mean_pred_confidence || 0) * 100).toFixed(1)}%. Admin needs to verify.`);
+          } else if (result.status === 'auto_denied') {
+            Alert.alert('❌ Denied', `Confidence too low. You can appeal within 30 days.`);
+          }
+
+          await fetchProjects();
+          setAnalyzing(false);
+
+        } else if (statusResponse.data.status === 'failed' || pollCount >= maxPolls) {
+          clearInterval(pollInterval);
+          throw new Error(statusResponse.data.error || 'ML analysis failed or timed out');
+        }
+        // Continue polling if still running
+      } catch (pollError) {
+        console.error('Polling error:', pollError);
+        clearInterval(pollInterval);
+        const errorMsg = pollError.response?.data?.error || pollError.message || "ML analysis failed";
+        if (pollError.response?.status === 503 || errorMsg.includes('unavailable')) {
+          Alert.alert('ML Service Unavailable', 'ML service is not running. Please contact support.');
+        } else {
+          Alert.alert("Analysis Failed", errorMsg);
+        }
+        setAnalyzing(false);
+      }
+    }, 5000); // Poll every 5 seconds
+
+  } catch (error) {
+    console.error("ML Analysis Error:", error);
+    Alert.alert("Analysis Failed", error.response?.data?.message || error.message || "ML analysis failed");
+    setAnalyzing(false);
+  }
+};
   if (loading) {
     return (
       <LinearGradient colors={["#0d1f0d", "#0f2a0f"]} style={styles.gradient}>

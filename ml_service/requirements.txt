@@ -3,7 +3,7 @@ uvicorn
 pandas
 numpy
 xgboost
-scikit-learn
+scikit-learn==1.7.0
 joblib
 rasterio
 shapely

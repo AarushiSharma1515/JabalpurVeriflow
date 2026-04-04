@@ -34,6 +34,7 @@ const mrvRoutes = require('./routes/mrvRoutes');
 const mintRoutes = require('./routes/mintRoutes');
 const mlRoutes = require('./routes/MLRoutes');
 
+
 // Routes middleware - mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
@@ -41,6 +42,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/mrv', mrvRoutes);
 app.use('/api/admin', mintRoutes);
+app.use('/api/mint', mintRoutes);
 app.use('/api/ml', mlRoutes);
 
 // Ensure uploads directory exists and serve it statically
@@ -97,7 +99,7 @@ const HOST = process.env.HOST;
 
 const startServer = async () => {
   await connectDB();
-
+  const HOST = '0.0.0.0';
   app.listen(PORT, HOST, () => {
     const hostLabel = HOST || 'localhost';
     console.log(`✓ Server is running on port ${PORT}`);

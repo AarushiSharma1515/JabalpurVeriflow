@@ -278,7 +278,7 @@ export default function MyPlots() {
       if (!userId) throw new Error("User ID missing. Please login again.");
 
       const data = await projectsService.getProjects(token, userId);
-      setPlots(data);
+      setPlots(Array.isArray(data) ? data : data.projects || []);
     } catch (err) {
       console.error("Error fetching plots:", err);
       const msg = err?.response?.data?.message ?? err.message ?? "Failed to fetch plots";

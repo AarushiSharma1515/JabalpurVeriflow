@@ -698,7 +698,7 @@ export default function PlotRegistrationScreen() {
       console.log('Submitting project', payload);
       console.log('API URL:', `${projectsService.API_BASE ?? 'undefined'}/api/projects`);
 
-      const resp = await projectsService.createProject(token, payload);
+      const resp = await projectsService.createProject(payload, token);
       console.log('Project created', resp);
       Alert.alert('Success', 'Plot registered successfully');
       navigation.goBack();

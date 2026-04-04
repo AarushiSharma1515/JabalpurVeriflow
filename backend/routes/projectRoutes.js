@@ -34,6 +34,9 @@ router.post('/', authMiddleware, projectController.createProject);
 router.patch('/:id', authMiddleware, projectController.updateProject);
 router.delete('/:id', authMiddleware, projectController.deleteProject);
 
+// ML results can be updated by authenticated users (for ML analysis updates)
+router.patch('/:id/ml-results', authMiddleware, projectController.updateProject);
+
 // Upload image to project (multipart/form-data, field name: image)
 router.post('/:id/images', authMiddleware, upload.single('image'), projectController.uploadProjectImage);
 

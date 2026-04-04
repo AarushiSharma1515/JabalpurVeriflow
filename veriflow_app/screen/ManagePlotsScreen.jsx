@@ -215,10 +215,10 @@ export default function ManagePlotsScreen({ route, navigation }) {
   if (loading) {
     return (
       <LinearGradient
-        colors={["#4A90E2", "#7B68EE"]}
+        colors={["#0d1f0d", "#0f2a0f"]}
         style={styles.loadingContainer}
       >
-        <ActivityIndicator size="large" color="#FFFFFF" />
+        <ActivityIndicator size="large" color="#4dff4d" />
         <Text style={styles.loadingText}>Loading plots...</Text>
       </LinearGradient>
     );
@@ -226,7 +226,7 @@ export default function ManagePlotsScreen({ route, navigation }) {
 
   return (
     <LinearGradient
-      colors={["#4A90E2", "#7B68EE"]}
+      colors={["#0d1f0d", "#0f2a0f"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.gradient}
@@ -238,11 +238,11 @@ export default function ManagePlotsScreen({ route, navigation }) {
             style={styles.backButton}
             onPress={() => navigation?.goBack()}
           >
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            <Ionicons name="arrow-back" size={24} color="#4dff4d" />
           </TouchableOpacity>
           <Text style={styles.title}>Manage Plots</Text>
           <TouchableOpacity style={styles.refreshButton} onPress={fetchPlots}>
-            <Ionicons name="refresh" size={24} color="#FFFFFF" />
+            <Ionicons name="refresh" size={24} color="#4dff4d" />
           </TouchableOpacity>
         </View>
 
@@ -838,14 +838,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.2)",
+    backgroundColor: "rgba(77,255,77,0.2)",
     justifyContent: "center",
     alignItems: "center",
   },
   title: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#FFFFFF",
+    color: "#4dff4d",
     flex: 1,
     textAlign: "center",
   },
@@ -853,7 +853,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.2)",
+    backgroundColor: "rgba(77,255,77,0.2)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -865,7 +865,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 15,
     fontSize: 16,
-    color: "#FFFFFF",
+    color: "#4dff4d",
     fontWeight: "600",
   },
   emptyContainer: {
@@ -873,14 +873,16 @@ const styles = StyleSheet.create({
     marginTop: 100,
   },
   noPlots: {
-    color: "#fff",
+    color: "#e5e5e5",
     textAlign: "center",
     marginTop: 20,
     fontSize: 18,
     fontWeight: "600",
   },
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#1a3a1a",
+    borderWidth: 1,
+    borderColor: "#2d5a2d",
     padding: 18,
     borderRadius: 12,
     marginBottom: 15,
@@ -904,7 +906,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#1e293b",
+    color: "#e5e5e5",
     marginLeft: 10,
     flex: 1,
   },
@@ -933,7 +935,7 @@ const styles = StyleSheet.create({
   infoText: {
     marginLeft: 8,
     fontSize: 14,
-    color: "#475569",
+    color: "#a1a1a1",
   },
   verifiedBadge: {
     flexDirection: "row",
@@ -941,7 +943,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: "#e2e8f0",
+    borderTopColor: "#2d5a2d",
   },
   verifiedText: {
     marginLeft: 8,

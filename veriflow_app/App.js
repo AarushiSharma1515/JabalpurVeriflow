@@ -1,7 +1,7 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import 'react-native-gesture-handler';
-
+import MLReviewScreen from './screen/MLReviewScreen';
 import LandingScreen from './screen/LandingScreen';
 import LoginScreen from './screen/LoginScreen';
 import RegisterScreen from './screen/RegisterScreen';
@@ -38,6 +38,7 @@ export default function AppNavigator() {
       <Stack.Screen name="RecordFieldData" component={RecordFieldData} options={{ headerShown: false }}/>
       <Stack.Screen name="ManagePlots" component={ManagePlots} options={{ headerShown: false }}/>
       <Stack.Screen name="ManageFarmers" component={ManageFarmers} options={{ headerShown: false }}/>
+      <Stack.Screen name="MLReviewScreen" component={MLReviewScreen} options={{ headerShown: false }}/>
       <Stack.Screen name="CarbonReportsScreen" component={CarbonReportsScreen} options={{ headerShown: false }}/>
       <Stack.Screen name="Marketplace" component={MarketplaceDashboard} options={{ headerShown: false }}/>
       <Stack.Screen name="SystemSettings" component={SystemSettingsScreen} options={{ headerShown: false }}/>

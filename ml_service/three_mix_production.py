@@ -833,130 +833,137 @@ def combine_confidence(u_model, u_dom, w_model=CONF_W_MODEL, w_dom=CONF_W_DOM):
     return float(max(0.0, min(1.0, w_model * u_model + w_dom * u_dom)))
 
 def pipeline_predict(features_parquet, model_bundle_path, out_dir):
+    import traceback
     df = pd.read_parquet(features_parquet)
     df = improved_filters_and_engineer(df)
     bundle = joblib.load(model_bundle_path)
     
-    # Handle both two-stage and single-stage models
-    is_two_stage = bundle.get('two_stage', False)
-    
-    if is_two_stage:
-        # Two-stage model: height_model + agb_model
-        height_model = bundle['height_model']
-        agb_model = bundle['agb_model']
-        models = None  # Two-stage doesn't use ensemble
-    else:
-        # Single-stage ensemble model
-        models = bundle.get('models', [])
-        if len(models) == 0:
-            raise RuntimeError("No models found in bundle")
-    
-    feature_names = bundle.get('feature_names', bundle.get('feat_names'))
-    feature_mean = bundle.get('feature_mean', None)
-    feature_std = bundle.get('feature_std', None)
-    mean_agb_train = bundle.get('mean_agb_train', None)
-    imputer = bundle.get('imputer', None)
-    scaler = bundle.get('scaler', None)
-    
-    if imputer is None:
-        imp_path = Path(model_bundle_path).parent / 'imputer.joblib'
-        if imp_path.exists(): 
-            imputer = joblib.load(imp_path)
-    
-    missing = [f for f in feature_names if f not in df.columns]
-    if missing:
-        raise RuntimeError(f"Missing features: {missing}")
-    
-    Xdf = df[feature_names].copy()
-    if imputer is None:
-        imp = SimpleImputer(strategy='median')
-        X_imp = imp.fit_transform(Xdf.values)
-    else:
-        X_imp = imputer.transform(Xdf.values)
-    
-    if scaler is None:
-        scl = StandardScaler()
-        X = scl.fit_transform(X_imp)
-    else:
-        X = scaler.transform(X_imp)
-    
-    # Make predictions based on model type
-    if is_two_stage:
-        # Stage 1: predict height
-        pred_rh = height_model.predict(X)
+    try:
+        # Handle both two-stage and single-stage models
+        is_two_stage = bundle.get('two_stage', False)
         
-        # Stage 2: predict log(AGB) using X + predicted height
-        X2 = np.hstack([X, pred_rh.reshape(-1, 1)])
-        preds_log = agb_model.predict(X2)
-        preds_mean = np.expm1(preds_log)  # Convert back from log1p
-        preds_std = np.zeros_like(preds_mean)  # No ensemble uncertainty for two-stage
-    else:
-        # Ensemble prediction
-        preds_all = np.vstack([m.predict(X) for m in models])
-        
-        # Check if target was log-transformed
-        target_transform = bundle.get('target_transform', None)
-        if target_transform == 'log1p':
-            # Models predict log1p(AGB), so expm1 to get back to linear scale
-            preds_all = np.expm1(preds_all)
-        
-        preds_mean = preds_all.mean(axis=0)
-        preds_std = preds_all.std(axis=0)
-    
-    df['pred_agb_Mg_ha'] = preds_mean
-    bgb_vec, carbon_vec, co2_vec = compute_bgb_carbon_co2(preds_mean, bgb_ratio=BGB_RATIO)
-    df['pred_bgb_Mg_ha'] = bgb_vec
-    df['pred_carbon_Mg_ha'] = carbon_vec
-    df['pred_co2_t_per_ha'] = co2_vec
-    df['pred_height_m'] = height_from_agb(preds_mean)
-    
-    feature_mean_arr = np.array([feature_mean[f] for f in feature_names]) if feature_mean is not None else None
-    feature_std_arr = np.array([feature_std[f] for f in feature_names]) if feature_std is not None else None
-    
-    confs = []
-    for i in range(len(X)):
-        xrow = X_imp[i]
-        pred_std = float(preds_std[i])
-        u_model = model_uncertainty_score(pred_std, mean_agb_train)
-        if feature_mean_arr is not None:
-            u_dom = domain_similarity_score_simple(xrow, feature_mean_arr, feature_std_arr)
+        if is_two_stage:
+            # Two-stage model: height_model + agb_model
+            height_model = bundle['height_model']
+            agb_model = bundle['agb_model']
+            models = None  # Two-stage doesn't use ensemble
         else:
-            u_dom = 0.5
-        conf = combine_confidence(u_model, u_dom)
-        confs.append(conf)
+            # Single-stage ensemble model
+            models = bundle.get('models', [])
+            if len(models) == 0:
+                raise RuntimeError("No models found in bundle")
+        
+        feature_names = bundle.get('feature_names', bundle.get('feat_names'))
+        feature_mean = bundle.get('feature_mean', None)
+        feature_std = bundle.get('feature_std', None)
+        mean_agb_train = bundle.get('mean_agb_train', None)
+        imputer = bundle.get('imputer', None)
+        scaler = bundle.get('scaler', None)
+        
+        if imputer is None:
+            imp_path = Path(model_bundle_path).parent / 'imputer.joblib'
+            if imp_path.exists(): 
+                imputer = joblib.load(imp_path)
+        
+        missing = [f for f in feature_names if f not in df.columns]
+        if missing:
+            raise RuntimeError(f"Missing features: {missing}")
+        
+        Xdf = df[feature_names].copy()
+        if imputer is None:
+            imp = SimpleImputer(strategy='median')
+            X_imp = imp.fit_transform(Xdf.values)
+        else:
+            X_imp = imputer.transform(Xdf.values)
+        
+        if scaler is None:
+            scl = StandardScaler()
+            X = scl.fit_transform(X_imp)
+        else:
+            X = scaler.transform(X_imp)
+        
+        # Make predictions based on model type
+        if is_two_stage:
+            # Stage 1: predict height
+            pred_rh = height_model.predict(X)
+            
+            # Stage 2: predict log(AGB) using X + predicted height
+            X2 = np.hstack([X, pred_rh.reshape(-1, 1)])
+            preds_log = agb_model.predict(X2)
+            preds_mean = np.expm1(preds_log)  # Convert back from log1p
+            preds_std = np.zeros_like(preds_mean)  # No ensemble uncertainty for two-stage
+        else:
+            # Ensemble prediction
+            preds_all = np.vstack([m.predict(X) for m in models])
+            
+            # Check if target was log-transformed
+            target_transform = bundle.get('target_transform', None)
+            if target_transform == 'log1p':
+                # Models predict log1p(AGB), so expm1 to get back to linear scale
+                preds_all = np.expm1(preds_all)
+            
+            preds_mean = preds_all.mean(axis=0)
+            preds_std = preds_all.std(axis=0)
+        
+        df['pred_agb_Mg_ha'] = preds_mean
+        bgb_vec, carbon_vec, co2_vec = compute_bgb_carbon_co2(preds_mean, bgb_ratio=BGB_RATIO)
+        df['pred_bgb_Mg_ha'] = bgb_vec
+        df['pred_carbon_Mg_ha'] = carbon_vec
+        df['pred_co2_t_per_ha'] = co2_vec
+        df['pred_height_m'] = height_from_agb(preds_mean)
+        
+        feature_mean_arr = np.array([feature_mean[f] for f in feature_names]) if feature_mean is not None else None
+        feature_std_arr = np.array([feature_std[f] for f in feature_names]) if feature_std is not None else None
+        
+        confs = []
+        for i in range(len(X)):
+            xrow = X_imp[i]
+            pred_std = float(preds_std[i])
+            u_model = model_uncertainty_score(pred_std, mean_agb_train)
+            if feature_mean_arr is not None:
+                u_dom = domain_similarity_score_simple(xrow, feature_mean_arr, feature_std_arr)
+            else:
+                u_dom = 0.5
+            conf = combine_confidence(u_model, u_dom)
+            confs.append(conf)
+        
+        df['pred_confidence'] = confs
+        mean_pred_agb = float(np.nanmean(preds_mean))
+        mean_bgb = float(np.nanmean(bgb_vec))
+        mean_carbon = float(np.nanmean(carbon_vec))
+        mean_co2 = float(np.nanmean(co2_vec))
+        mean_conf = float(np.nanmean(confs))
+        mean_pred_height = float(np.nanmean(df['pred_height_m']))
+        
+        results = {
+            'mean_pred_height_m': mean_pred_height,
+            'mean_pred_agb_Mg_per_ha': mean_pred_agb,
+            'mean_pred_bgb_Mg_per_ha': mean_bgb,
+            'mean_pred_carbon_Mg_per_ha': mean_carbon,
+            'mean_pred_co2_t_per_ha': mean_co2,
+            'mean_pred_confidence': mean_conf,
+            'n_points': int(len(df)),
+            'model_type': 'two_stage' if is_two_stage else 'ensemble'
+        }
+        
+        outd = Path(out_dir)
+        outd.mkdir(parents=True, exist_ok=True)
+        with open(outd/'results_prediction.json','w') as fh: 
+            json.dump(results, fh, indent=2)
+        df.to_parquet(outd/'predictions.parquet', index=False)
+        
+        print("\n" + "="*60)
+        print("Prediction complete!")
+        print("="*60)
+        print(json.dumps(results, indent=2))
+        print(f"\nPredictions saved to: {outd/'predictions.parquet'}")
+        
+        return results
     
-    df['pred_confidence'] = confs
-    mean_pred_agb = float(np.nanmean(preds_mean))
-    mean_bgb = float(np.nanmean(bgb_vec))
-    mean_carbon = float(np.nanmean(carbon_vec))
-    mean_co2 = float(np.nanmean(co2_vec))
-    mean_conf = float(np.nanmean(confs))
-    mean_pred_height = float(np.nanmean(df['pred_height_m']))
-    
-    results = {
-        'mean_pred_height_m': mean_pred_height,
-        'mean_pred_agb_Mg_per_ha': mean_pred_agb,
-        'mean_pred_bgb_Mg_per_ha': mean_bgb,
-        'mean_pred_carbon_Mg_per_ha': mean_carbon,
-        'mean_pred_co2_t_per_ha': mean_co2,
-        'mean_pred_confidence': mean_conf,
-        'n_points': int(len(df)),
-        'model_type': 'two_stage' if is_two_stage else 'ensemble'
-    }
-    
-    outd = Path(out_dir)
-    outd.mkdir(parents=True, exist_ok=True)
-    with open(outd/'results_prediction.json','w') as fh: 
-        json.dump(results, fh, indent=2)
-    df.to_parquet(outd/'predictions.parquet', index=False)
-    
-    print("\n" + "="*60)
-    print("Prediction complete!")
-    print("="*60)
-    print(json.dumps(results, indent=2))
-    print(f"\nPredictions saved to: {outd/'predictions.parquet'}")
-    
-    return results
+    except Exception as e:
+        print("Error in pipeline_predict:")
+        traceback.print_exc()
+        raise
 
 def points_from_geojson_polygon(geojson_path, spacing_m, date_str=None):
     with open(geojson_path,'r') as fh:

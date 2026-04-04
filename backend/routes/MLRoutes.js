@@ -38,6 +38,7 @@ const express = require('express');
 const router = express.Router();
 const mlController = require('../controllers/MLController');
 const authMiddleware = require('../middleware/authMiddleware');
+const verifierMiddleware = require('../middleware/verifierMiddleware');
 
 // Debug middleware - log all requests
 router.use((req, res, next) => {
@@ -62,8 +63,12 @@ router.get('/pending-count', mlController.getPendingCount);
 router.get('/result/:id', mlController.getMLResultById);
 router.get('/results', mlController.getMLResults);
 router.get('/stats', mlController.getMLStats);
-router.patch('/:id/approve', mlController.approveMLResult);
-router.patch('/:id/reject', mlController.rejectMLResult);
-router.patch('/:id/mark-minted', mlController.markAsMinted);
+router.patch('/:id/approve', verifierMiddleware, mlController.approveMLResult);
+router.patch('/:id/reject', verifierMiddleware, mlController.rejectMLResult);
+router.patch('/:id/mark-minted', verifierMiddleware, mlController.markAsMinted);
+// Appeal routes (farmer)
+router.post('/:id/appeal', mlController.fileAppeal);
 
+// Appeal review (admin and farmers)
+router.patch('/:id/appeal/review', verifierMiddleware, mlController.reviewAppeal);
 module.exports = router;

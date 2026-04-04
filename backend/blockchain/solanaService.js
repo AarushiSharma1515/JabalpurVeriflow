@@ -1,5 +1,5 @@
 // blockchain/solanaService.js
-const { Metaplex, keypairIdentity, irysStorage } = require("@metaplex-foundation/js"); // irysStorage is built-in
+const { Metaplex, keypairIdentity, irysStorage } = require("@metaplex-foundation/js");
 const { Connection, Keypair, PublicKey, clusterApiUrl } = require("@solana/web3.js");
 const fs = require("fs");
 
@@ -61,18 +61,48 @@ async function mintCarbonCredit(mrvResult) {
   return {
     mintAddresses,
     creditsIssued,
+    carbonKg,
     metadataUri: uri,
     explorerUrl: `https://explorer.solana.com/address/${adminKeypair.publicKey.toString()}?cluster=devnet`
   };
 }
 
 async function transferCarbonCredit(mintAddress, buyerWalletAddress) {
-  const nft = await metaplex.nfts().findByMint({ mintAddress: new PublicKey(mintAddress) });
-  await metaplex.nfts().transfer({
-    nftOrSft: nft,
-    toOwner: new PublicKey(buyerWalletAddress),
-  });
-  return { success: true, mintAddress, buyer: buyerWalletAddress };
+  try {
+    // Validate buyer wallet address
+    let buyerPublicKey;
+    try {
+      buyerPublicKey = new PublicKey(buyerWalletAddress);
+    } catch (error) {
+      throw new Error(`Invalid buyer wallet address: ${buyerWalletAddress}`);
+    }
+
+    // Find the NFT
+    const nft = await metaplex.nfts().findByMint({ mintAddress: new PublicKey(mintAddress) });
+    
+    // Check if admin owns this NFT
+    if (nft.updateAuthorityAddress.toString() !== adminKeypair.publicKey.toString()) {
+      throw new Error(`Admin does not own NFT ${mintAddress}`);
+    }
+
+    // Perform transfer
+    const transferResponse = await metaplex.nfts().transfer({
+      nftOrSft: nft,
+      toOwner: buyerPublicKey,
+    });
+
+    return {
+      success: true,
+      mintAddress,
+      buyer: buyerWalletAddress,
+      signature: transferResponse?.response?.signature || transferResponse?.signature || null,
+      transactionHash: transferResponse?.response?.signature || transferResponse?.signature || null,
+      explorerUrl: `https://explorer.solana.com/address/${mintAddress}?cluster=devnet`
+    };
+  } catch (error) {
+    console.error('Transfer error:', error);
+    throw new Error(`NFT transfer failed: ${error.message}`);
+  }
 }
 
 module.exports = { mintCarbonCredit, transferCarbonCredit };

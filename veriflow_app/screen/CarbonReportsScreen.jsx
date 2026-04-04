@@ -253,7 +253,7 @@ export default function CarbonReportsScreen() {
       
       {/* Background Gradient */}
       <LinearGradient
-        colors={['#4A90E2', '#7B68EE']}
+        colors={['#0d1f0d', '#0f2a0f']}
         style={StyleSheet.absoluteFill}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -312,8 +312,8 @@ const mainStyles = StyleSheet.create({
   scrollView: { flex: 1 },
   scrollContent: { paddingVertical: 24, paddingBottom: 50 },
   header: { alignItems: 'center', marginBottom: 30 },
-  title: { fontSize: 32, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
-  subtitle: { fontSize: 16, color: '#FFFFFF', opacity: 0.9 },
+  title: { fontSize: 32, fontWeight: 'bold', color: '#4dff4d', marginBottom: 8 },
+  subtitle: { fontSize: 16, color: '#a1a1a1', opacity: 0.9 },
   statsContainer: { paddingHorizontal: 20, paddingBottom: 20 },
   statCard: {
     width: 170,
@@ -325,18 +325,20 @@ const mainStyles = StyleSheet.create({
   statHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   changeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
   changeText: { fontSize: 12, fontWeight: '600' },
-  statValue: { fontSize: 28, fontWeight: 'bold', color: '#4A90E2' },
-  statLabel: { fontSize: 14, color: '#444' },
+  statValue: { fontSize: 28, fontWeight: 'bold', color: '#4dff4d' },
+  statLabel: { fontSize: 14, color: '#a1a1a1' },
   chartCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#1a3a1a',
     marginHorizontal: 20,
     borderRadius: 18,
     padding: 20,
     marginBottom: 25,
     elevation: 4,
+    borderWidth: 1,
+    borderColor: '#2d5a2d',
   },
-  chartTitle: { fontSize: 20, fontWeight: 'bold', color: '#4A90E2' },
-  chartSubtitle: { fontSize: 14, color: '#555', marginBottom: 20 },
+  chartTitle: { fontSize: 20, fontWeight: 'bold', color: '#4dff4d' },
+  chartSubtitle: { fontSize: 14, color: '#a1a1a1', marginBottom: 20 },
 });
 
 // BAR CHART styles

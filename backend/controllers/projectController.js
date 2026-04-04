@@ -473,10 +473,8 @@ exports.updateProject = async (req, res) => {
       mlAnalysisResults
     } = req.body;
 
-    // Only admin can change status to verified/rejected
-    if (status && (status === 'verified' || status === 'rejected') && !isAdmin) {
-      return res.status(403).json({ message: 'Forbidden: Only admin can verify/reject projects' });
-    }
+    // Allow farmers and admin to update status
+    // (ML system and field operators can update to verified/rejected)
 
     if (status) project.status = status;
     if (title) project.title = title;
