@@ -13,7 +13,7 @@ import {
 import { Audio } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
 
-const ChatBox = ({ apiUrl = "http://YOUR_API_URL:8000" }) => {
+const ChatBox = ({ apiUrl = "https://precosmic-charlene-germfree.ngrok-free.dev/chat" }) => {
   const [message, setMessage] = useState("");
   const [chatMessages, setChatMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -21,73 +21,51 @@ const ChatBox = ({ apiUrl = "http://YOUR_API_URL:8000" }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
-  // Send text query to API
-  const sendTextQuery = async () => {
-    if (!message.trim()) return;
+  const sendMessage = async (text) => {
+    const userMessage = (text || message).trim();
+    if (!userMessage) return;
 
-    const userMessage = message.trim();
     setMessage("");
     setChatMessages((prev) => [...prev, { type: "user", text: userMessage }]);
     setLoading(true);
 
     try {
-      const response = await fetch(`${apiUrl}/query`, {
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
         },
-        body: JSON.stringify({
-          question: userMessage,
-          language: "en-US",
-          k: 4,
-          enable_tts: false,
-        }),
+        body: JSON.stringify({ message: userMessage }),
       });
 
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`API Error: ${response.status}`);
 
       const data = await response.json();
       setChatMessages((prev) => [
         ...prev,
-        { type: "bot", text: data.answer },
+        { type: "bot", text: data.reply || data.answer || "No response received." },
       ]);
     } catch (error) {
       console.error("Error sending query:", error);
       setChatMessages((prev) => [
         ...prev,
-        {
-          type: "bot",
-          text: "Sorry, I couldn't process your request. Please try again.",
-        },
+        { type: "bot", text: "Sorry, I couldn't process your request. Please try again." },
       ]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Start recording audio
   const startRecording = async () => {
     try {
       const permission = await Audio.requestPermissionsAsync();
       if (permission.status !== "granted") {
-        Alert.alert(
-          "Permission Required",
-          "Please allow microphone access to use voice input."
-        );
+        Alert.alert("Permission Required", "Please allow microphone access to use voice input.");
         return;
       }
-
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
       setRecording(recording);
       setIsRecording(true);
     } catch (error) {
@@ -96,58 +74,38 @@ const ChatBox = ({ apiUrl = "http://YOUR_API_URL:8000" }) => {
     }
   };
 
-  // Stop recording and send to API
   const stopRecording = async () => {
     if (!recording) return;
-
     setIsRecording(false);
     setLoading(true);
-
     try {
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI();
+      setChatMessages((prev) => [...prev, { type: "user", text: "[Voice Message]" }]);
 
-      setChatMessages((prev) => [
-        ...prev,
-        { type: "user", text: "[Voice Message]" },
-      ]);
-
-      // Create FormData for audio upload
       const formData = new FormData();
-      formData.append("audio", {
-        uri: uri,
-        type: "audio/wav",
-        name: "recording.wav",
-      });
-      formData.append("language", "en-US");
-      formData.append("k", "4");
-      formData.append("enable_tts", "false");
+      formData.append("audio", { uri, type: "audio/wav", name: "recording.wav" });
 
-      const response = await fetch(`${apiUrl}/query-with-audio`, {
+      const response = await fetch(apiUrl.replace("/chat", "/query-with-audio"), {
         method: "POST",
         body: formData,
         headers: {
           "Content-Type": "multipart/form-data",
+          "ngrok-skip-browser-warning": "true",
         },
       });
 
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-      }
-
+      if (!response.ok) throw new Error(`API Error: ${response.status}`);
       const data = await response.json();
       setChatMessages((prev) => [
         ...prev,
-        { type: "bot", text: data.answer },
+        { type: "bot", text: data.reply || data.answer },
       ]);
     } catch (error) {
       console.error("Error processing voice query:", error);
       setChatMessages((prev) => [
         ...prev,
-        {
-          type: "bot",
-          text: "Sorry, I couldn't process your voice message. Please try again.",
-        },
+        { type: "bot", text: "Sorry, I couldn't process your voice message. Please try again." },
       ]);
     } finally {
       setRecording(null);
@@ -155,9 +113,16 @@ const ChatBox = ({ apiUrl = "http://YOUR_API_URL:8000" }) => {
     }
   };
 
+  const SUGGESTIONS = [
+    "What is Blue Carbon?",
+    "How do I register a plot?",
+    "How much can I earn?",
+    "What is a carbon credit?",
+    "How do I sell credits?",
+  ];
+
   return (
     <>
-      {/* Chat Toggle Button */}
       {!isChatOpen && (
         <TouchableOpacity
           style={styles.floatingButton}
@@ -168,7 +133,6 @@ const ChatBox = ({ apiUrl = "http://YOUR_API_URL:8000" }) => {
         </TouchableOpacity>
       )}
 
-      {/* Chat Modal */}
       <Modal
         visible={isChatOpen}
         animationType="slide"
@@ -177,7 +141,8 @@ const ChatBox = ({ apiUrl = "http://YOUR_API_URL:8000" }) => {
       >
         <View style={styles.modalContainer}>
           <View style={styles.chatContainer}>
-            {/* Chat Header */}
+
+            {/* Header */}
             <View style={styles.chatHeader}>
               <Text style={styles.chatHeaderText}>FAQ Assistant</Text>
               <TouchableOpacity onPress={() => setIsChatOpen(false)}>
@@ -185,38 +150,49 @@ const ChatBox = ({ apiUrl = "http://YOUR_API_URL:8000" }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Chat Messages */}
+            {/* Messages */}
             <ScrollView
               style={styles.messagesContainer}
               contentContainerStyle={styles.messagesContent}
             >
               {chatMessages.length === 0 && (
-                <Text style={styles.emptyText}>
-                  Ask me anything about Blue Carbon!
-                </Text>
+                <View>
+                  <Text style={styles.emptyText}>
+                    Ask me anything about Blue Carbon!
+                  </Text>
+                  <View style={styles.suggestionsContainer}>
+                    {SUGGESTIONS.map((q, i) => (
+                      <TouchableOpacity
+                        key={i}
+                        style={styles.suggestionBtn}
+                        onPress={() => sendMessage(q)}
+                      >
+                        <Text style={styles.suggestionText}>{q}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
               )}
+
               {chatMessages.map((msg, index) => (
                 <View
                   key={index}
                   style={[
                     styles.messageBubble,
-                    msg.type === "user"
-                      ? styles.userBubble
-                      : styles.botBubble,
+                    msg.type === "user" ? styles.userBubble : styles.botBubble,
                   ]}
                 >
                   <Text
                     style={[
                       styles.messageText,
-                      msg.type === "user"
-                        ? styles.userText
-                        : styles.botText,
+                      msg.type === "user" ? styles.userText : styles.botText,
                     ]}
                   >
                     {msg.text}
                   </Text>
                 </View>
               ))}
+
               {loading && (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color="#4dff4d" />
@@ -225,7 +201,7 @@ const ChatBox = ({ apiUrl = "http://YOUR_API_URL:8000" }) => {
               )}
             </ScrollView>
 
-            {/* Input Area */}
+            {/* Input */}
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.textInput}
@@ -234,37 +210,27 @@ const ChatBox = ({ apiUrl = "http://YOUR_API_URL:8000" }) => {
                 value={message}
                 onChangeText={setMessage}
                 editable={!loading && !isRecording}
-                onSubmitEditing={sendTextQuery}
+                onSubmitEditing={() => sendMessage()}
                 returnKeyType="send"
               />
-
-              {/* Voice Recording Button */}
               <TouchableOpacity
-                style={[
-                  styles.voiceButton,
-                  isRecording && styles.voiceButtonActive,
-                ]}
+                style={[styles.voiceButton, isRecording && styles.voiceButtonActive]}
                 onPress={isRecording ? stopRecording : startRecording}
                 disabled={loading}
                 activeOpacity={0.7}
               >
-                <Ionicons
-                  name={isRecording ? "stop-circle" : "mic"}
-                  size={24}
-                  color="#FFFFFF"
-                />
+                <Ionicons name={isRecording ? "stop-circle" : "mic"} size={24} color="#FFFFFF" />
               </TouchableOpacity>
-
-              {/* Send Button */}
               <TouchableOpacity
                 style={styles.sendButton}
-                onPress={sendTextQuery}
+                onPress={() => sendMessage()}
                 disabled={loading || !message.trim() || isRecording}
                 activeOpacity={0.7}
               >
                 <Ionicons name="send" size={20} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
+
           </View>
         </View>
       </Modal>
@@ -329,6 +295,24 @@ const styles = StyleSheet.create({
     color: "#aaaaaa",
     fontSize: 16,
     marginTop: 20,
+    marginBottom: 16,
+  },
+  suggestionsContainer: {
+    gap: 8,
+    marginTop: 4,
+  },
+  suggestionBtn: {
+    backgroundColor: "#1a2e1a",
+    borderWidth: 1,
+    borderColor: "#4dff4d",
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  suggestionText: {
+    color: "#4dff4d",
+    fontSize: 13,
+    textAlign: "center",
   },
   messageBubble: {
     maxWidth: "80%",
